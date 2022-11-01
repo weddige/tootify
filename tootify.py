@@ -1,5 +1,6 @@
 import argparse
 import logging
+from collections import defaultdict
 import yaml
 from tweepy import Client
 from mastodon import Mastodon
@@ -29,9 +30,16 @@ def get_new_tweets(bearer_token, username, since_id=None):
     return client.get_users_tweets(
         id=user_id,
         exclude=["retweets", "replies"],
-        # tweet_fields='created_at',
+        tweet_fields=["conversation_id", "referenced_tweets"],
         since_id=since_id,
     ).data
+
+
+def get_conversations(tweets):
+    conversations = defaultdict(list)
+    for tweet in tweets:
+        conversations[tweet.conversation_id].append(tweet)
+    return dict(conversations)
 
 
 def connect(instance, client_id, client_secret, access_token):
@@ -67,6 +75,7 @@ def main():
     )
 
     if tweets:
+        conversations = get_conversations(tweets)
         api = connect(
             instance=status["mastodon"]["instance"],
             client_id=status["mastodon"]["client_id"],
@@ -74,13 +83,39 @@ def main():
             access_token=status["mastodon"]["access_token"],
         )
         last_id = status["twitter"].get("last_id", None)
-        for tweet in tweets:
-            if args.dry_run:
-                logger.info(f"Skip tweet {tweet.id}")
-            else:
-                logger.debug(f"Toot tweet {tweet.id}")
-                api.toot(tweet.text)
-            last_id = max(last_id, tweet.id)
+        for conversation in get_conversations(tweets).values():
+            references = {}
+            for tweet in sorted(conversation, key=lambda tweet: tweet.id):
+                if tweet.id == tweet.conversation_id:
+                    if args.dry_run:
+                        logger.info(f"Skip tweet {tweet.id}")
+                    else:
+                        logger.debug(f"Toot tweet {tweet.id}")
+                        toot = api.toot(tweet.text)
+                else:
+                    replied_to = (
+                        [
+                            ref.id
+                            for ref in tweet.referenced_tweets or []
+                            if ref.type == "replied_to"
+                        ]
+                        or [None]
+                    )[0]
+                    if replied_to in references:
+                        if args.dry_run:
+                            logger.info(f"Skip reply {tweet.id} to {replied_to}")
+                        else:
+                            logger.debug(f"Toot reply {tweet.id} to {replied_to}")
+                            toot = api.status_post(
+                                tweet.text, in_reply_to_id=references[replied_to]
+                            )
+                    else:
+                        logger.error(
+                            f"Skip {tweet.id}. Did not find referenced tweet {replied_to}"
+                        )
+                if not args.dry_run:
+                    references[tweet.id] = toot["id"]
+                last_id = max(last_id, tweet.id) if last_id else tweet.id
         status["twitter"]["last_id"] = last_id
         yaml.dump(status, open(args.status, "w"), yaml.dumper.SafeDumper)
     else:

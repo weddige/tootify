@@ -17,7 +17,5 @@ args = parser.parse_args()
 configure_logger(args)
 
 tootifyer = Tootifyer(args.status)
-tootifyer.read()
 tootifyer.connect()
 tootifyer.toot_new_tweets(dry_run=args.dry_run)
-tootifyer.write()

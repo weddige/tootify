@@ -14,14 +14,15 @@ logger = logging.getLogger(__name__)
 class Tootifyer:
     def __init__(self, config: Path) -> None:
         self._status_path = config
+        self._read_status()
 
-    def read(self) -> None:
+    def _read_status(self) -> None:
         self._status = yaml.load(self._status_path.open("r"), yaml.SafeLoader)
 
-    def write(self) -> None:
+    def _write_status(self) -> None:
         yaml.dump(self._status, self._status_path.open("w"), yaml.dumper.SafeDumper)
 
-    def get_new_tweets(self):
+    def _get_new_tweets(self):
         result = self._twitter_client.get_users_tweets(
             id=self._twitter_user_id,
             exclude=["retweets", "replies"],
@@ -30,7 +31,7 @@ class Tootifyer:
         )
         return result.data
 
-    def get_conversations(self, tweets):
+    def _get_conversations(self, tweets):
         conversations = defaultdict(list)
         for tweet in tweets:
             conversations[tweet.conversation_id].append(tweet)
@@ -49,21 +50,15 @@ class Tootifyer:
             logger.error(check.get("error connecting to Mastodon"))
         else:
             username = str(check["username"])
-            logger.info(
-                f"connected on @{username}@{self._status['mastodon']['instance']}"
-            )
+            logger.info(f"connected on @{username}@{self._status['mastodon']['instance']}")
         logger.debug("connect to twitter")
-        self._twitter_client = Client(
-            bearer_token=self._status["twitter"]["bearer_token"]
-        )
-        self._twitter_user_id = self._twitter_client.get_user(
-            username=self._status["twitter"]["username"]
-        ).data.id
+        self._twitter_client = Client(bearer_token=self._status["twitter"]["bearer_token"])
+        self._twitter_user_id = self._twitter_client.get_user(username=self._status["twitter"]["username"]).data.id
 
     def toot_new_tweets(self, dry_run: bool = False):
-        tweets = self.get_new_tweets()
+        tweets = self._get_new_tweets()
         if tweets:
-            conversations = self.get_conversations(tweets)
+            conversations = self._get_conversations(tweets)
 
             last_id = self._status["twitter"].get("last_id", None)
 
@@ -78,28 +73,20 @@ class Tootifyer:
                             toot = self._mastodon_api.toot(tweet.text)
                     else:
                         replied_to = (
-                            [
-                                ref.id
-                                for ref in tweet.referenced_tweets or []
-                                if ref.type == "replied_to"
-                            ]
-                            or [None]
+                            [ref.id for ref in tweet.referenced_tweets or [] if ref.type == "replied_to"] or [None]
                         )[0]
                         if replied_to in references:
                             if dry_run:
                                 logger.info(f"Skip reply {tweet.id} to {replied_to}")
                             else:
                                 logger.debug(f"Toot reply {tweet.id} to {replied_to}")
-                                toot = self._mastodon_api.status_post(
-                                    tweet.text, in_reply_to_id=references[replied_to]
-                                )
+                                toot = self._mastodon_api.status_post(tweet.text, in_reply_to_id=references[replied_to])
                         else:
-                            logger.error(
-                                f"Skip {tweet.id}. Did not find referenced tweet {replied_to}"
-                            )
+                            logger.error(f"Skip {tweet.id}. Did not find referenced tweet {replied_to}")
                     if not dry_run:
                         references[tweet.id] = toot["id"]
                     last_id = max(last_id, tweet.id) if last_id else tweet.id
             self._status["twitter"]["last_id"] = last_id
         else:
             logger.warning("No new tweets.")
+        self._write_status()

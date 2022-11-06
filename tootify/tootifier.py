@@ -12,7 +12,7 @@ from mastodon import Mastodon
 logger = logging.getLogger(__name__)
 
 
-class Tootifyer:
+class Tootifier:
     def __init__(self, config: Path) -> None:
         self._status_path = config
         self._read_status()
@@ -38,9 +38,10 @@ class Tootifyer:
             conversations[tweet.conversation_id].append(tweet)
         return dict(conversations)
 
-    def _expand_urls(text: str):
+    def _expand_urls(self, text: str):
         # Find twitter short urls
-        urls = re.findall("https://t.co/([0-9a-zA-Z]+)", text)
+        urls = re.findall("https://t.co/[0-9a-zA-Z]+", text)
+        print(urls)
         for url in urls:
             try:
                 res = urllib.request.urlopen(url)

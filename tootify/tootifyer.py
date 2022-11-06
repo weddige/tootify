@@ -2,9 +2,10 @@ import logging
 from typing import TextIO, Any
 from unittest import result
 import yaml
+import urllib
+import re
 from collections import defaultdict
 from pathlib import Path
-import yaml
 from tweepy import Client
 from mastodon import Mastodon
 
@@ -36,6 +37,18 @@ class Tootifyer:
         for tweet in tweets:
             conversations[tweet.conversation_id].append(tweet)
         return dict(conversations)
+
+    def _expand_urls(text: str):
+        # Find twitter short urls
+        urls = re.findall("https://t.co/([0-9a-zA-Z]+)", text)
+        for url in urls:
+            try:
+                res = urllib.request.urlopen(url)
+                expanded_url = res.geturl()
+                text = text.replace(url, expanded_url)
+            except:
+                pass
+        return text
 
     def connect(self):
         logger.debug("connect to Mastodon")
@@ -70,7 +83,7 @@ class Tootifyer:
                             logger.info(f"Skip tweet {tweet.id}")
                         else:
                             logger.debug(f"Toot tweet {tweet.id}")
-                            toot = self._mastodon_api.toot(tweet.text)
+                            toot = self._mastodon_api.toot(self._expand_urls(tweet.text))
                     else:
                         replied_to = (
                             [ref.id for ref in tweet.referenced_tweets or [] if ref.type == "replied_to"] or [None]
@@ -80,7 +93,9 @@ class Tootifyer:
                                 logger.info(f"Skip reply {tweet.id} to {replied_to}")
                             else:
                                 logger.debug(f"Toot reply {tweet.id} to {replied_to}")
-                                toot = self._mastodon_api.status_post(tweet.text, in_reply_to_id=references[replied_to])
+                                toot = self._mastodon_api.status_post(
+                                    self._expand_urls(tweet.text), in_reply_to_id=references[replied_to]
+                                )
                         else:
                             logger.error(f"Skip {tweet.id}. Did not find referenced tweet {replied_to}")
                     if not dry_run:

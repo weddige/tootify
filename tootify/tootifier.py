@@ -101,13 +101,14 @@ class Tootifier:
                 for tweet in sorted(conversation, key=lambda tweet: tweet.id):
                     toot = None
                     media = []
-                    for media_key in tweet.attachments["media_keys"]:
-                        item = next((item for item in included_media if item.media_key == media_key), None)
-                        if item:
-                            logger.debug(f'Found media {item.url}')
-                            media.append(item)
-                        else:
-                            logger.error(f'Could not find attachment with media_key {media_key}!')
+                    if tweet.attachments:
+                        for media_key in tweet.attachments.get("media_keys", []):
+                            item = next((item for item in included_media if item.media_key == media_key), None)
+                            if item:
+                                logger.debug(f'Found media {item.url}')
+                                media.append(item)
+                            else:
+                                logger.error(f'Could not find attachment with media_key {media_key}!')
                     if tweet.id == tweet.conversation_id:
                         if skip:
                             logger.info(f"Skip tweet {tweet.id}")

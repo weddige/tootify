@@ -14,6 +14,6 @@ def main(mytimer: func.TimerRequest) -> None:
 
     tootifyer = Tootifier(Path("/tootify/config.yaml"))
     tootifyer.connect()
-    tootifyer.toot_new_tweets(dry_run=False)
+    tootifyer.toot_new_tweets()
 
     logging.info("Python timer trigger function ran at %s", utc_timestamp)

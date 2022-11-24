@@ -37,10 +37,12 @@ class Tootifier:
         result = self._twitter_client.get_users_tweets(
             id=self._twitter_user_id,
             exclude=["retweets", "replies"],
-            tweet_fields=["conversation_id", "referenced_tweets"],
+            tweet_fields=["conversation_id", "referenced_tweets", "attachments"],
             since_id=self._status["status"].get("last_tweet", None),
+            expansions=["attachments.media_keys"],
+            media_fields=["url", "alt_text", "variants"],
         )
-        return result.data
+        return result
 
     def _get_conversations(self, tweets):
         conversations = defaultdict(list)
@@ -51,7 +53,6 @@ class Tootifier:
     def _expand_urls(self, text: str):
         # Find twitter short urls
         urls = re.findall("https://t.co/[0-9a-zA-Z]+", text)
-        print(urls)
         for url in urls:
             try:
                 res = urllib.request.urlopen(url)
@@ -64,7 +65,6 @@ class Tootifier:
     def _expand_handles(self, text: str):
         # Find twitter short urls
         handles = re.findall("@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_]|$)", text)
-        print(handles)
         for handle in handles:
             text = text.replace(handle, f"handle@twitter.com")
         return text
@@ -90,8 +90,9 @@ class Tootifier:
     def toot_new_tweets(self, dry_run: bool = False, skip: bool = False):
         skip = skip or dry_run
         tweets = self._get_new_tweets()
-        if tweets:
-            conversations = self._get_conversations(tweets)
+        if tweets.data:
+            conversations = self._get_conversations(tweets.data)
+            included_media = tweets.includes["media"]
 
             last_id = self._status["status"].get("last_tweet", None)
             references = self._status["status"].get("references", {})
@@ -99,6 +100,14 @@ class Tootifier:
             for conversation in conversations.values():
                 for tweet in sorted(conversation, key=lambda tweet: tweet.id):
                     toot = None
+                    media = []
+                    for media_key in tweet.attachments["media_keys"]:
+                        item = next((item for item in included_media if item.media_key == media_key), None)
+                        if item:
+                            logger.debug(f'Found media {item.url}')
+                            media.append(item)
+                        else:
+                            logger.error(f'Could not find attachment with media_key {media_key}!')
                     if tweet.id == tweet.conversation_id:
                         if skip:
                             logger.info(f"Skip tweet {tweet.id}")

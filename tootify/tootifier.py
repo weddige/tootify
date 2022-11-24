@@ -19,16 +19,26 @@ class Tootifier:
 
     def _read_status(self) -> None:
         self._status = yaml.load(self._status_path.open("r"), yaml.SafeLoader)
+        if "status" not in self._status:
+            logger.debug("Add status section")
+            self._status["status"] = {
+                "last_id": self._status["twitter"].get("last_tweet", None),  # Legacy
+                "references": {},
+            }
 
-    def _write_status(self) -> None:
-        yaml.dump(self._status, self._status_path.open("w"), yaml.dumper.SafeDumper)
+    def _write_status(self, dry_run: bool = False) -> None:
+        if not dry_run:
+            yaml.dump(self._status, self._status_path.open("w"), yaml.dumper.SafeDumper)
+        else:
+            logger.info("Dry run: Skip updating config.")
 
     def _get_new_tweets(self):
+        logger.debug(f"Get tweets newer than {self._status['status'].get('last_tweet', None)}")
         result = self._twitter_client.get_users_tweets(
             id=self._twitter_user_id,
             exclude=["retweets", "replies"],
             tweet_fields=["conversation_id", "referenced_tweets"],
-            since_id=self._status["twitter"].get("last_id", None),
+            since_id=self._status["status"].get("last_tweet", None),
         )
         return result.data
 
@@ -51,6 +61,14 @@ class Tootifier:
                 pass
         return text
 
+    def _expand_handles(self, text: str):
+        # Find twitter short urls
+        handles = re.findall("@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_]|$)", text)
+        print(handles)
+        for handle in handles:
+            text = text.replace(handle, f"handle@twitter.com")
+        return text
+
     def connect(self):
         logger.debug("connect to Mastodon")
         self._mastodon_api = Mastodon(
@@ -69,40 +87,46 @@ class Tootifier:
         self._twitter_client = Client(bearer_token=self._status["twitter"]["bearer_token"])
         self._twitter_user_id = self._twitter_client.get_user(username=self._status["twitter"]["username"]).data.id
 
-    def toot_new_tweets(self, dry_run: bool = False):
+    def toot_new_tweets(self, dry_run: bool = False, skip: bool = False):
+        skip = skip or dry_run
         tweets = self._get_new_tweets()
         if tweets:
             conversations = self._get_conversations(tweets)
 
-            last_id = self._status["twitter"].get("last_id", None)
+            last_id = self._status["status"].get("last_tweet", None)
+            references = self._status["status"].get("references", {})
 
             for conversation in conversations.values():
-                references = {}
                 for tweet in sorted(conversation, key=lambda tweet: tweet.id):
+                    toot = None
                     if tweet.id == tweet.conversation_id:
-                        if dry_run:
+                        if skip:
                             logger.info(f"Skip tweet {tweet.id}")
                         else:
                             logger.debug(f"Toot tweet {tweet.id}")
-                            toot = self._mastodon_api.toot(self._expand_urls(tweet.text))
+                            toot = self._mastodon_api.toot(self._expand_urls(self._expand_handles(tweet.text)))
                     else:
                         replied_to = (
                             [ref.id for ref in tweet.referenced_tweets or [] if ref.type == "replied_to"] or [None]
                         )[0]
                         if replied_to in references:
-                            if dry_run:
+                            if skip:
                                 logger.info(f"Skip reply {tweet.id} to {replied_to}")
                             else:
                                 logger.debug(f"Toot reply {tweet.id} to {replied_to}")
                                 toot = self._mastodon_api.status_post(
-                                    self._expand_urls(tweet.text), in_reply_to_id=references[replied_to]
+                                    (self._expand_urls(self._expand_handles(tweet.text))),
+                                    in_reply_to_id=references[replied_to],
                                 )
                         else:
                             logger.error(f"Skip {tweet.id}. Did not find referenced tweet {replied_to}")
-                    if not dry_run:
+                    if toot:
                         references[tweet.id] = toot["id"]
                     last_id = max(last_id, tweet.id) if last_id else tweet.id
-            self._status["twitter"]["last_id"] = last_id
+            if not "status" in self._status:
+                self._status["status"] = {}
+            self._status["status"]["last_tweet"] = last_id
+            self._status["status"]["references"] = references
         else:
             logger.warning("No new tweets.")
-        self._write_status()
+        self._write_status(dry_run)

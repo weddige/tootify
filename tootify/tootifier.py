@@ -22,7 +22,7 @@ class Tootifier:
         if "status" not in self._status:
             logger.debug("Add status section")
             self._status["status"] = {
-                "last_id": self._status["twitter"].get("last_tweet", None),  # Legacy
+                "last_tweet": self._status["twitter"].get("last_id", None),  # Legacy
                 "references": {},
             }
 
@@ -66,7 +66,7 @@ class Tootifier:
         # Find twitter short urls
         handles = re.findall("@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_]|$)", text)
         for handle in handles:
-            text = text.replace(handle, f"handle@twitter.com")
+            text = text.replace(handle, f"{handle}@twitter.com")
         return text
 
     def connect(self):
@@ -105,10 +105,10 @@ class Tootifier:
                         for media_key in tweet.attachments.get("media_keys", []):
                             item = next((item for item in included_media if item.media_key == media_key), None)
                             if item:
-                                logger.debug(f'Found media {item.url}')
+                                logger.debug(f"Found media {item.url}")
                                 media.append(item)
                             else:
-                                logger.error(f'Could not find attachment with media_key {media_key}!')
+                                logger.error(f"Could not find attachment with media_key {media_key}!")
                     if tweet.id == tweet.conversation_id:
                         if skip:
                             logger.info(f"Skip tweet {tweet.id}")

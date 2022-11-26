@@ -92,7 +92,7 @@ class Tootifier:
         tweets = self._get_new_tweets()
         if tweets.data:
             conversations = self._get_conversations(tweets.data)
-            included_media = tweets.includes["media"]
+            included_media = tweets.includes.get("media", [])
 
             last_id = self._status["status"].get("last_tweet", None)
             references = self._status["status"].get("references", {})

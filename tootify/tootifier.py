@@ -8,6 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 from tweepy import Client
 from mastodon import Mastodon
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +63,14 @@ class Tootifier:
                 pass
         return text
 
+    def _strip_self_referencing_urls(self, text: str, tweet_id):
+        url = f"https://twitter.com/{self._status['twitter']['username']}/status/{tweet_id}/"
+        logger.debug(f"Strip {url}([a-zA-Z0-9]+/)+")
+        return re.sub(f"{url}([a-zA-Z0-9]+/)+[a-zA-Z0-9]*", "", text)
+
     def _expand_handles(self, text: str):
         # Find twitter short urls
-        handles = re.findall("@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_]|$)", text)
+        handles = re.findall("(?<=[^0-9a-zA-Z_])@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_@]|$)", text)
         for handle in handles:
             text = text.replace(handle, f"{handle}@twitter.com")
         return text
@@ -87,6 +93,18 @@ class Tootifier:
         self._twitter_client = Client(bearer_token=self._status["twitter"]["bearer_token"])
         self._twitter_user_id = self._twitter_client.get_user(username=self._status["twitter"]["username"]).data.id
 
+    def _toot_media(self, media):
+        result = []
+        for media in media:
+            response = requests.get(media.url)
+            if response.ok:
+                result.append(
+                    self._mastodon_api.media_post(
+                        response.content, mime_type=response.headers["content-type"], description=media.alt_text
+                    )
+                )
+        return result
+
     def toot_new_tweets(self, dry_run: bool = False, skip: bool = False):
         skip = skip or dry_run
         tweets = self._get_new_tweets()
@@ -99,7 +117,6 @@ class Tootifier:
 
             for conversation in conversations.values():
                 for tweet in sorted(conversation, key=lambda tweet: tweet.id):
-                    toot = None
                     media = []
                     if tweet.attachments:
                         for media_key in tweet.attachments.get("media_keys", []):
@@ -109,28 +126,34 @@ class Tootifier:
                                 media.append(item)
                             else:
                                 logger.error(f"Could not find attachment with media_key {media_key}!")
-                    if tweet.id == tweet.conversation_id:
-                        if skip:
-                            logger.info(f"Skip tweet {tweet.id}")
-                        else:
-                            logger.debug(f"Toot tweet {tweet.id}")
-                            toot = self._mastodon_api.toot(self._expand_urls(self._expand_handles(tweet.text)))
-                    else:
+                                continue
+                    in_reply_to_id = None
+                    if tweet.id != tweet.conversation_id:
                         replied_to = (
                             [ref.id for ref in tweet.referenced_tweets or [] if ref.type == "replied_to"] or [None]
                         )[0]
                         if replied_to in references:
-                            if skip:
-                                logger.info(f"Skip reply {tweet.id} to {replied_to}")
-                            else:
-                                logger.debug(f"Toot reply {tweet.id} to {replied_to}")
-                                toot = self._mastodon_api.status_post(
-                                    (self._expand_urls(self._expand_handles(tweet.text))),
-                                    in_reply_to_id=references[replied_to],
-                                )
+                            logger.debug(f"Tweet {tweet.id} is a reply to {replied_to}")
+                            in_reply_to_id = references[replied_to]
                         else:
                             logger.error(f"Skip {tweet.id}. Did not find referenced tweet {replied_to}")
-                    if toot:
+                            continue
+                    logger.debug(f"Clean text: {tweet.text}")
+                    tweet_text = self._strip_self_referencing_urls(
+                        self._expand_urls(self._expand_handles(tweet.text)), tweet_id=tweet.id
+                    )
+                    logger.debug(f"Cleaned text: {tweet_text}")
+                    if skip:
+                        logger.info(f"Skip tweet {tweet.id}")
+                    else:
+                        logger.debug(f"Download media")
+                        media_ids = self._toot_media(media)
+                        logger.debug(f"Toot")
+                        toot = self._mastodon_api.status_post(
+                            tweet_text,
+                            in_reply_to_id=in_reply_to_id,
+                            media_ids=media_ids,
+                        )
                         references[tweet.id] = toot["id"]
                     last_id = max(last_id, tweet.id) if last_id else tweet.id
             if not "status" in self._status:

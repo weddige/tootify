@@ -15,7 +15,7 @@ twitter:
   username: <Twitter username>
 ```
 
-Tootify will update this file with the current syncronisation status. To update it without tooting any tweets run `python -m tootify --dry-run config.yaml`.
+Tootify will update this file with the current syncronisation status. To update it without tooting any tweets run `python -m tootify --skip config.yaml`.
 
 After that it can be run with `python -m tootify config.yaml`.
 

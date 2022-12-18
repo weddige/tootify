@@ -82,9 +82,9 @@ class Tootifier:
         handles = re.findall("(?<=[^0-9a-zA-Z_])@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_@]|$)", text)
         familiar_accounts = self._status.get("familiar_accounts", {})
         for handle in handles:
-            if handle in familiar_accounts:
+            if handle[1:] in familiar_accounts:
                 logger.debug(f"Found {handle} in familiar accounts: {familiar_accounts[handle]}")
-                text = text.replace(handle, familiar_accounts[handle])
+                text = text.replace(handle, f"@{familiar_accounts[handle]}")
             else:
                 text = text.replace(handle, f"{handle}@twitter.com")
         return text

@@ -1,14 +1,15 @@
 import logging
-from typing import TextIO, Any
-from unittest import result
-import yaml
-import urllib
 import re
+import urllib
 from collections import defaultdict
 from pathlib import Path
-from tweepy import Client
-from mastodon import Mastodon
+from typing import Any, TextIO
+from unittest import result
+
 import requests
+import yaml
+from mastodon import Mastodon
+from tweepy import Client
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class Tootifier:
                 expanded_url = res.geturl()
                 text = text.replace(url, expanded_url)
             except:
-                pass
+                logger.error(f"Failed to expand {url}.")
         return text
 
     def _strip_self_referencing_urls(self, text: str, tweet_id):
@@ -74,6 +75,29 @@ class Tootifier:
         for handle in handles:
             text = text.replace(handle, f"{handle}@twitter.com")
         return text
+
+    def login(self, instance, username, password, /, dry_run=False):
+        base_url = f"https://{instance}"
+        client_id, client_secret = Mastodon.create_app("tootifier", api_base_url=base_url)
+        logger.debug(f'Created mastodon app "tootifier".')
+
+        self._status["mastodon"]["client_id"] = client_id
+        self._status["mastodon"]["client_secret"] = client_secret
+        self._status["mastodon"]["instance"] = instance
+
+        self._mastodon_api = Mastodon(
+            client_id=self._status["mastodon"]["client_id"],
+            client_secret=self._status["mastodon"]["client_secret"],
+            access_token=self._status["mastodon"]["access_token"],
+            api_base_url=f"https://{self._status['mastodon']['instance']}",
+        )
+        access_token = self._mastodon_api.log_in(username, password)
+        r = self._mastodon_api.account_verify_credentials()
+        if not r.get("error"):
+            self._status["mastodon"]["access_token"] = access_token
+        else:
+            logger.critical(f"Failed to login at {base_url}: {r.get('error')}")
+        self._write_status(dry_run)
 
     def connect(self):
         logger.debug("connect to Mastodon")

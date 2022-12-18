@@ -83,8 +83,8 @@ class Tootifier:
         familiar_accounts = self._status.get("familiar_accounts", {})
         for handle in handles:
             if handle[1:] in familiar_accounts:
-                logger.debug(f"Found {handle} in familiar accounts: {familiar_accounts[handle]}")
-                text = text.replace(handle, f"@{familiar_accounts[handle]}")
+                logger.debug(f"Found {handle} in familiar accounts: {familiar_accounts[handle[1:]]}")
+                text = text.replace(handle, f"@{familiar_accounts[handle[1:]]}")
             else:
                 text = text.replace(handle, f"{handle}@twitter.com")
         return text

@@ -80,11 +80,16 @@ class Tootifier:
     def _expand_handles(self, text: str):
         # Find twitter short urls
         handles = re.findall("(?<=[^0-9a-zA-Z_])@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_@]|$)", text)
+        familiar_accounts = self._status.get("familiar_accounts", {})
         for handle in handles:
-            text = text.replace(handle, f"{handle}@twitter.com")
+            if handle in familiar_accounts:
+                logger.debug(f"Found {handle} in familiar accounts: {familiar_accounts[handle]}")
+                text = text.replace(handle, familiar_accounts[handle])
+            else:
+                text = text.replace(handle, f"{handle}@twitter.com")
         return text
 
-    def login(self, instance, username, password, /, dry_run=False):
+    def login(self, instance: str, username: str, password: str, /, dry_run: bool = False):
         base_url = f"https://{instance}"
         client_id, client_secret = Mastodon.create_app("tootifier", api_base_url=base_url)
         logger.debug(f'Created mastodon app "tootifier".')

@@ -26,5 +26,5 @@ if args.login:
     password = getpass.getpass()
     tootifyer.login(instance, username, password, dry_run=args.dry_run)
 else:
-    tootifyer.connect(dry_run=args.dry_run)
+    tootifyer.connect()
     tootifyer.toot_new_tweets(dry_run=args.dry_run, skip=args.skip)

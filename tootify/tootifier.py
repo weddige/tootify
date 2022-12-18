@@ -27,6 +27,14 @@ class Tootifier:
                 "last_tweet": self._status["twitter"].get("last_id", None),  # Legacy
                 "references": {},
             }
+        if "twitter" not in self._status:
+            logger.warning("Add emtpy twitter section")
+            self._status["twitter"] = {
+                "bearer_token": "<REPLACE WITH TWITTER BEARER TOKEN>",
+                "username": "<REPLACE WITH TWITTER USERNAME>",
+            }
+        if "mastodon" not in self._status:
+            logger.warning("No mastodon credentials found. Run with --login.")
 
     def _write_status(self, dry_run: bool = False) -> None:
         if not dry_run:

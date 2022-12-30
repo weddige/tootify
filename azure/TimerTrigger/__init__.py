@@ -9,4 +9,4 @@ from tootify.tootifier import Tootifier
 def main(mytimer: func.TimerRequest) -> None:
     tootifyer = Tootifier(Path("/tootify/config.yaml"))
     tootifyer.connect()
-    tootifyer.toot_new_tweets()
+    tootifyer.toot()

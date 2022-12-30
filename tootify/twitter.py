@@ -42,6 +42,12 @@ class TwitterSource(Source):
                 text = text.replace(handle, f"{handle}@twitter.com")
         return text
 
+    def _translate_hashtags(self, text: str) -> str:
+        result = text
+        for hashtag, replacement in self.config.get("common_hashtags", {}).items():
+            result = re.sub(f"{re.escape(hashtag)}(?=[^0-9a-zA-Z_@]|$)", replacement, result)
+        return result
+
     def tootify(self, tweet, included_media):
         media = []
         if tweet.attachments:
@@ -59,8 +65,8 @@ class TwitterSource(Source):
             replied_to = ([ref.id for ref in tweet.referenced_tweets or [] if ref.type == "replied_to"] or [None])[0]
 
         logger.debug(f"Clean text: {tweet.text}")
-        tweet_text = self._strip_self_referencing_urls(
-            self._expand_urls(self._expand_handles(tweet.text)), tweet_id=tweet.id
+        tweet_text = self._translate_hashtags(
+            self._strip_self_referencing_urls(self._expand_urls(self._expand_handles(tweet.text)), tweet_id=tweet.id)
         )
         return Toot(
             source=self,

@@ -93,4 +93,4 @@ class TwitterSource(Source):
         if new_tweets.data:
             self.config["status"]["last_tweet"] = max(tweet.id for tweet in new_tweets.data)
         included_media = new_tweets.includes.get("media", [])
-        return [self.tootify(tweet, included_media) for tweet in sorted(new_tweets.data, key=lambda tweet: tweet.id)]
+        return [self.tootify(tweet, included_media) for tweet in sorted(new_tweets.data or [], key=lambda tweet: tweet.id)]

@@ -35,7 +35,7 @@ class IGSource(Source):
         if post["media_type"] == "IMAGE":
             media = [Media(post["media_url"])]
         elif post["media_type"] == "CAROUSEL_ALBUM":
-            media = [Media(media["media_url"]) for media in post["children"]["data"]]
+            media = [Media(media["media_url"]) for media in post["children"]["data"][:4]]
         else:
             raise ValueError("Unknown media type")
         caption = self._translate_hashtags(self._expand_handles(post["caption"]))

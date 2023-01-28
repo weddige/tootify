@@ -17,7 +17,7 @@ class Tootifier:
         self._read_status()
 
     def _read_status(self) -> None:
-        self._status = yaml.load(self._status_path.open("r"), yaml.SafeLoader)
+        self._status = yaml.load(self._status_path.open("r"), yaml.SafeLoader) or {}
         if "instagram" in self._status:
             from tootify.instagram import IGSource
 
@@ -42,7 +42,9 @@ class Tootifier:
         base_url = f"https://{instance}"
         client_id, client_secret = Mastodon.create_app("tootifier", api_base_url=base_url)
         logger.debug(f'Created mastodon app "tootifier".')
-
+        if "mastodon" not in self._status:
+            logger.debug(f"Create new config section.")
+            self._status["mastodon"] = {}
         self._status["mastodon"]["client_id"] = client_id
         self._status["mastodon"]["client_secret"] = client_secret
         self._status["mastodon"]["instance"] = instance
@@ -50,7 +52,6 @@ class Tootifier:
         self._mastodon_api = Mastodon(
             client_id=self._status["mastodon"]["client_id"],
             client_secret=self._status["mastodon"]["client_secret"],
-            access_token=self._status["mastodon"]["access_token"],
             api_base_url=f"https://{self._status['mastodon']['instance']}",
         )
         access_token = self._mastodon_api.log_in(username, password)

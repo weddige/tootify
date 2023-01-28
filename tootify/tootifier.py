@@ -26,6 +26,10 @@ class Tootifier:
             from tootify.twitter import TwitterSource
 
             self._sources["twitter"] = TwitterSource(self._status["twitter"])
+        if "feed" in self._status:
+            from tootify.feed import FeedSource
+
+            self._sources["feed"] = FeedSource(self._status["feed"])
         if "mastodon" not in self._status:
             logger.warning("No mastodon credentials found. Run with --login.")
 

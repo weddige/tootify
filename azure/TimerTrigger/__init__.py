@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def main(timer: func.TimerRequest) -> None:
-    config = os.environ["TOOTIFIER_CONFIG"] or "/tootify/config.yaml"
+    config = os.environ.get("TOOTIFIER_CONFIG") or "/tootify/config.yaml"
     for path in config.split(":"):
         logger.info(f"Run tootifier {path}")
         tootifyer = Tootifier(Path(path))

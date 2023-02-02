@@ -29,6 +29,9 @@ class FeedSource(Source):
                         if last_update_new
                         else published_parsed
                     )
+                    if entry["id"] in self.config["status"]["references"]:
+                        logger.warning(f'Skip {entry["id"]} because entry has been redated.')
+                        continue
                     result.append(
                         Toot(
                             source=self,

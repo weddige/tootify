@@ -14,7 +14,7 @@ class IGSource(Source):
         return datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S%z")
 
     def _expand_handles(self, text: str):
-        handles = re.findall("(?<=[^0-9a-zA-Z_])@[0-9a-zA-Z_]{1,15}(?=[^0-9a-zA-Z_@]|$)", text)
+        handles = re.findall("(?<=[^0-9a-zA-Z_])@[0-9a-zA-Z_]{1,30}(?=[^0-9a-zA-Z_@]|$)", text)
         familiar_accounts = self.config.get("familiar_accounts", {})
         for handle in handles:
             if handle[1:] in familiar_accounts:
@@ -35,9 +35,10 @@ class IGSource(Source):
         if post["media_type"] == "IMAGE":
             media = [Media(post["media_url"])]
         elif post["media_type"] == "CAROUSEL_ALBUM":
-            media = [Media(media["media_url"]) for media in post["children"]["data"][:4]]
+            media = [Media(media["media_url"]) for media in post["children"]["data"][:self.config.get('max_media', 4)]]
         else:
-            raise ValueError("Unknown media type")
+            logger.error(f'Skip unknown media type {post["media_type"]}')
+            return None
         caption = self._translate_hashtags(self._expand_handles(post["caption"]))
         return Toot(source=self, reference=post["id"], status=caption, media=media)
 
@@ -61,4 +62,4 @@ class IGSource(Source):
             self.config["status"]["last_update"] = max(
                 new_posts, key=lambda post: self._parse_timestamp(post["timestamp"])
             )["timestamp"]
-        return [self.tootify(post) for post in new_posts]
+        return filter(None, [self.tootify(post) for post in new_posts])

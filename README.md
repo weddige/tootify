@@ -18,7 +18,7 @@ twitter:
   familiar_accounts:
     KonstantWeddige: weddige@gruene.social
   common_hashtags:
-    '#servicetweet': '#servicetoot'
+    '#servicetweet': '#servicepost'
 ```
 
 The credentials for Mastodon can be filled in automatically:
@@ -50,8 +50,8 @@ instagram:
   familiar_accounts:
     konstantinweddige: weddige@gruene.social
   common_hashtags:
-    '#dogsofinstagram': '#dogsofmastodon'
-    '#catsofinstagram': '#catsofmastodon'
+    '#dogsofinstagram': '#fedidogs'
+    '#catsofinstagram': '#fedicats'
 ```
 
 To get the credentials, you will need to create an app for the Instagram Basic Display API at <https://developers.facebook.com/>. The access tokens can be generated using the *User Token Generator*. The app can stay in development mode indefinitely, so it doesn't need to be reviewed by Meta.

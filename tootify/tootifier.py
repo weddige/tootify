@@ -69,8 +69,8 @@ class Tootifier:
     def connect(self):
         logger.debug("connect to Mastodon")
         self._mastodon_api = Mastodon(
-            client_id=self._status["mastodon"]["client_id"],
-            client_secret=self._status["mastodon"]["client_secret"],
+            client_id=self._status["mastodon"].get("client_id", None),
+            client_secret=self._status["mastodon"].get("client_secret", None),
             access_token=self._status["mastodon"]["access_token"],
             api_base_url=f"https://{self._status['mastodon']['instance']}",
         )

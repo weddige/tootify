@@ -22,4 +22,4 @@ def main(timer: func.TimerRequest) -> None:
             logger.error(e)
             fails += 1
     if fails:
-        raise RuntimeError("{fails} executions failed")
+        raise RuntimeError(f"{fails} executions failed")

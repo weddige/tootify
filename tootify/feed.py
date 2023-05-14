@@ -3,6 +3,7 @@ import logging
 import re
 from typing import List
 
+import dateparser
 import feedparser
 
 from tootify.source import Media, Source, Toot
@@ -23,9 +24,13 @@ class FeedSource(Source):
             )
             last_update_new = last_update
             for entry in parser.entries:
-                if last_update is None or (published_parsed := datetime(*entry["published_parsed"][:6])) > last_update:
+                if not re.search(feed.get("pattern", ".*"), entry["description"]):
+                    logger.info(f'Did not match: {feed.get("pattern", ".*")}')
+                    continue
+                published_parsed = dateparser.parse(entry["published"])
+                if last_update is None or published_parsed > last_update:
                     last_update_new = (
-                        max(last_update_new, published_parsed)
+                        max(filter(None, (last_update_new, published_parsed)))
                         if last_update_new
                         else published_parsed
                     )
@@ -43,5 +48,5 @@ class FeedSource(Source):
                             ),
                         )
                     )
-            feed["last_update"] = last_update_new.isoformat()
+            feed["last_update"] = last_update_new and last_update_new.isoformat()
         return result

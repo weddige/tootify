@@ -27,7 +27,7 @@ class FeedSource(Source):
                 if not re.search(feed.get("pattern", ".*"), entry["description"]):
                     logger.info(f'Did not match: {feed.get("pattern", ".*")}')
                     continue
-                published_parsed = dateparser.parse(entry["published"])
+                published_parsed = dateparser.parse(entry["published"]).replace(tzinfo=None)
                 if last_update is None or published_parsed > last_update:
                     last_update_new = (
                         max(filter(None, (last_update_new, published_parsed)))

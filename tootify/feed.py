@@ -21,7 +21,7 @@ class FeedSource(Source):
             parser = feedparser.parse(feed["url"])
             last_update = feed.get("last_update", None) and datetime.fromisoformat(
                 feed.get("last_update", None)
-            )
+            ).replace(tzinfo=None)
             last_update_new = last_update
             for entry in parser.entries:
                 if not re.search(feed.get("pattern", ".*"), entry["description"]):

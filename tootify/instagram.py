@@ -35,7 +35,7 @@ class IGSource(Source):
         if post["media_type"] == "IMAGE":
             media = [Media(post["media_url"])]
         elif post["media_type"] == "CAROUSEL_ALBUM":
-            media = [Media(media["media_url"]) for media in post["children"]["data"][:self.config.get('max_media', 4)]]
+            media = [Media(media["media_url"]) for media in post["children"]["data"][: self.config.get("max_media", 4)]]
         else:
             logger.error(f'Skip unknown media type {post["media_type"]}')
             return None
@@ -48,6 +48,14 @@ class IGSource(Source):
         )
         self._instagram_basic_display.set_access_token(self.config["access_token"])
         self._user_profile = self._instagram_basic_display.get_user_profile()
+        logger.info(f'connected to @{self._user_profile["username"]}@instagram.com')
+        expires_in = self.config.get("expires_at", datetime.datetime.now()) - datetime.datetime.now()
+        logger.debug(f"token expires in {expires_in}")
+        if expires_in < datetime.timedelta(weeks=1):
+            logger.info("refresh token")
+            refresh = self._instagram_basic_display.refresh_token(self.config["access_token"])
+            self.config["access_token"] = refresh["access_token"]
+            self.config["expires_at"] = datetime.datetime.now() + datetime.timedelta(seconds=refresh["expires_in"])
 
     def get_new_posts(self):
         last_update = self.config.get("status", {}).get("last_update", None)

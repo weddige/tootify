@@ -100,22 +100,25 @@ class Tootifier:
     def toot(self, dry_run: bool = False, skip: bool = False):
         skip = skip or dry_run
 
-        for source in self._sources.values():
-            for toot in source:
-                if skip:
-                    logger.info(f"Skip tooting {toot.reference}")
-                else:
-                    try:
-                        in_reply_to_id = toot.in_reply_to_id
-                        logger.debug(f"Toot media for {toot.reference}")
-                        media_ids = self._toot_media(toot.media)
-                        logger.debug(f"Toot {toot.reference}")
-                        status = self._mastodon_api.status_post(
-                            toot.status,
-                            in_reply_to_id=in_reply_to_id,
-                            media_ids=media_ids,
-                        )
-                        toot.id = status["id"]
-                    except ReferencedPostMissing:
-                        logger.error("Skip toot, as referenced post could not be found.")
-        self._write_status(dry_run)
+        try:
+            for source in self._sources.values():
+                for toot in source:
+                    if skip:
+                        logger.info(f"Skip tooting {toot.reference}")
+                    else:
+                        try:
+                            in_reply_to_id = toot.in_reply_to_id
+                            logger.debug(f"Toot media for {toot.reference}")
+                            media_ids = self._toot_media(toot.media)
+                            logger.debug(f"Toot {toot.reference}")
+                            status = self._mastodon_api.status_post(
+                                toot.status,
+                                in_reply_to_id=in_reply_to_id,
+                                media_ids=media_ids,
+                            )
+                            toot.id = status["id"]
+                        except ReferencedPostMissing:
+                            logger.error("Skip toot, as referenced post could not be found.")
+        finally:
+            # Update config in any case, not to toot anything multiple times
+            self._write_status(dry_run)

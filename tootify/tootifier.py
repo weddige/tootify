@@ -5,7 +5,7 @@ import requests
 import yaml
 from mastodon import Mastodon
 
-from tootify.source import ReferencedPostMissing
+from tootify.source import ReferencedPostMissing, ReferenceAlreadyExists
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,8 @@ class Tootifier:
                             toot.id = status["id"]
                         except ReferencedPostMissing:
                             logger.error("Skip toot, as referenced post could not be found.")
+                        except ReferenceAlreadyExists:
+                            logger.fatal("Reference already exists. Possible duplicate!")
         finally:
             # Update config in any case, not to toot anything multiple times
             self._write_status(dry_run)

@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 class ReferencedPostMissing(ValueError):
     pass
 
+class ReferenceAlreadyExists(ValueError):
+    pass
+
 
 class Media:
     def __init__(self, media_url: str, description: Optional[str] = None) -> None:
@@ -53,7 +56,7 @@ class Toot:
     @id.setter
     def id(self, id):
         if self.reference in self.source.config["status"]["references"]:
-            raise ValueError(f"Reference {self.reference} already exists.")
+            raise ReferenceAlreadyExists(f"Reference {self.reference} already exists.")
         self._id = id
         self.source.config["status"]["references"][self.reference] = id
 
